@@ -484,6 +484,7 @@ def widget(design: str = "", lock: int = 0):
 
     <button onclick="refresh()">Update Preview</button>
     <button onclick="saveProof()">Save Proof</button>
+    <div id="result"></div>
 
     <div id="result" style="margin-top:10px;"></div>
   </div>
@@ -588,9 +589,11 @@ async function saveProof() {{
     result.innerHTML = "<span style='color:red;'>Error: " + (data.detail || "Unknown") + "</span>";
     return;
   }}
-
-  result.innerHTML = "<div><b>Saved.</b> Proof ID: <b>" + data.proof_id + "</b></div>";
-}}
+result.innerHTML = `
+  <div style="padding:10px; margin-top:10px; background:#e6ffe6; border:1px solid #2ecc71; color:#145a32; font-weight:bold;">
+    ✅ Proof Saved Successfully
+  </div>
+`;
 
 async function onDesignChange() {{
   await loadDesignColors();
