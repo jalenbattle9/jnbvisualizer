@@ -36,12 +36,12 @@ DESIGN_MAP_PATH = os.path.join(BASE_DIR, "design_map.json")
 DB_PATH = os.path.join(BASE_DIR, "proofs.db")
 LOG_CSV_PATH = os.path.join(BASE_DIR, "proofs_log.csv")
 
-# Set in PowerShell before starting if you want:
-#   $env:JNB_ADMIN_PASSWORD="your-strong-password"
+# Set in Render Environment Variables:
+#   JNB_ADMIN_PASSWORD=your-strong-password
 ADMIN_PASSWORD = os.environ.get("JNB_ADMIN_PASSWORD", "change-this-now")
 
 # Optional mirror backup folder (recommended if you want a second copy somewhere safe)
-#   $env:JNB_MIRROR_BACKUP_DIR="C:\JNB_BACKUP_MIRROR"
+#   JNB_MIRROR_BACKUP_DIR=/some/path
 MIRROR_BACKUP_DIR = os.environ.get("JNB_MIRROR_BACKUP_DIR", "").strip() or None
 
 MAX_BLOCKS = 20
@@ -201,18 +201,11 @@ def load_design_map() -> dict:
 # PES -> BLOCKS -> RENDER (CLEAN: NO JUMPS/TRAVEL)
 # ============================================================
 def pattern_to_blocks_clean(pattern):
-    """
-    Build color blocks of drawable stitch segments only.
-    - NO jump/trim travel lines
-    - Break on COLOR_CHANGE
-    - Also hides "travel" that is encoded as STITCH by using distance threshold
-    """
     blocks = []
     current = []
     last = None
 
     for x, y, cmd in pattern.stitches:
-        # Common mapping in pyembroidery:
         # 0=STITCH, 1=JUMP, 2=TRIM, 3=STOP, 4=END, 5=COLOR_CHANGE
         if cmd == 0:  # STITCH
             if last is not None:
@@ -236,7 +229,6 @@ def pattern_to_blocks_clean(pattern):
             last = None
 
         else:
-            # JUMP / TRIM / STOP / END etc -> break line, draw nothing
             last = None
 
     if current:
@@ -305,7 +297,6 @@ def render_preview_png(design_path: str, bg_hex: str, colors_hex: List[str]) -> 
     img = Image.new("RGB", (canvas, canvas), hex_to_rgb(bg_hex))
     draw = ImageDraw.Draw(img)
 
-    # Thicker for client-friendly visibility
     line_width = 2
 
     for i, block in enumerate(blocks):
@@ -345,7 +336,6 @@ def generate_recolored_pes(master_path: str, colors_hex: List[str], proof_id: st
     out_name = f"{os.path.splitext(design_file)[0]}__{safe_tag(client_tag)}__{proof_id}.pes"
     out_path = os.path.join(GENERATED_DIR, out_name)
 
-    # NEW FILE ONLY (original untouched)
     write(pattern, out_path)
     return out_path
 
@@ -366,10 +356,6 @@ def home():
 
 @app.get("/design-info")
 def design_info(design: str):
-    """
-    Returns the design's existing thread colors and drawable block count
-    so the UI can pre-load and mark unused blocks as N/A.
-    """
     design_path = validate_design_file(design)
     pattern = read(design_path)
     colors = extract_thread_colors(pattern)
@@ -422,7 +408,6 @@ def widget(design: str = "", lock: int = 0):
             f"<div class='locked'>Design locked</div>"
         )
 
-    # Color inputs (with N/A labels)
     color_inputs = []
     for i in range(1, MAX_BLOCKS + 1):
         color_inputs.append(
@@ -445,7 +430,7 @@ def widget(design: str = "", lock: int = 0):
   <title>jnbvisualizer</title>
   <style>
     body {{ font-family: Arial, sans-serif; margin: 16px; }}
-    .row {{ display:flex; gap:16px; align-items:flex-start; }}
+    .row {{ display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }}
     .panel {{ flex:1; min-width: 360px; }}
     .box {{ border:1px solid #ddd; border-radius:12px; padding:14px; background:#fff; }}
     label {{ display:block; margin-top:10px; font-size: 13px; }}
@@ -484,8 +469,8 @@ def widget(design: str = "", lock: int = 0):
 
     <button onclick="refresh()">Update Preview</button>
     <button onclick="saveProof()">Save Proof</button>
-    <div id="result"></div>
 
+    <!-- ✅ ONLY ONE result div -->
     <div id="result" style="margin-top:10px;"></div>
   </div>
 
@@ -539,12 +524,10 @@ async function loadDesignColors() {{
 
   const blockCount = (data.block_count || 0);
 
-  // Mark N/A blocks
   for (let i = 1; i <= MAX_BLOCKS; i++) {{
     setNA(i, i > blockCount);
   }}
 
-  // Load actual thread colors into the used blocks
   if (data.colors && data.colors.length) {{
     for (let i = 1; i <= Math.min(data.colors.length, MAX_BLOCKS); i++) {{
       const el = document.getElementById("c" + i);
@@ -581,26 +564,35 @@ async function saveProof() {{
   form.append("bg_hex", bg);
   form.append("colors_csv", colors);
 
-  const res = await fetch("/save-proof", {{ method: "POST", body: form }});
-  const data = await res.json();
-
   const result = document.getElementById("result");
+  result.innerHTML = "";
+
+  let res, data;
+  try {{
+    res = await fetch("/save-proof", {{ method: "POST", body: form }});
+    data = await res.json();
+  }} catch (e) {{
+    result.innerHTML = "<span style='color:red;'>Error: Could not reach server.</span>";
+    return;
+  }}
+
   if (!res.ok) {{
     result.innerHTML = "<span style='color:red;'>Error: " + (data.detail || "Unknown") + "</span>";
     return;
   }}
-result.innerHTML = `
-  <div style="padding:10px; margin-top:10px; background:#e6ffe6; border:1px solid #2ecc71; color:#145a32; font-weight:bold;">
-    ✅ Proof Saved Successfully
-  </div>
-`;
+
+  result.innerHTML = `
+    <div style="padding:10px; margin-top:10px; background:#e6ffe6; border:1px solid #2ecc71; color:#145a32; font-weight:bold;">
+      ✅ Proof Saved Successfully
+    </div>
+  `;
+}}  // ✅ IMPORTANT: closes saveProof()
 
 async function onDesignChange() {{
   await loadDesignColors();
   refresh();
 }}
 
-// On page load:
 loadDesignColors().then(refresh);
 </script>
 
@@ -659,7 +651,6 @@ def save_proof(
     }
     snap_path = write_json_snapshot(snap_payload, proof_id)
 
-    # mirror backups (optional)
     mirror_file_if_enabled(DB_PATH)
     mirror_file_if_enabled(LOG_CSV_PATH)
     mirror_file_if_enabled(snap_path)
