@@ -1,8 +1,6 @@
-# Ignore embroidery output
-*.pes
-
-# Ignore generated previews
+# Ignore generated customer files
 designs/generated/
+proofs.db
 
 # Ignore Python cache
 __pycache__/
