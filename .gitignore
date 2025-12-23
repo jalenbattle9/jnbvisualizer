@@ -1,0 +1,9 @@
+# Ignore embroidery output
+*.pes
+
+# Ignore generated previews
+designs/generated/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
