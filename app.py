@@ -21,20 +21,19 @@ from PIL import Image, ImageDraw, ImageFont
 # ============================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Put your ORIGINAL PES files here:
+DATA_DIR = os.environ.get("JNB_DATA_DIR", "").strip() or BASE_DIR
+
+# Put your ORIGINAL PES files here (these can stay in the repo):
 MASTER_DIR = os.path.join(BASE_DIR, "designs", "master")
 
-# Generated customer-specific PES files go here (server-side only):
-GENERATED_DIR = os.path.join(BASE_DIR, "designs", "generated")
+# Anything you CREATE should go on the persistent disk:
+GENERATED_DIR = os.path.join(DATA_DIR, "designs", "generated")
+BACKUP_DIR = os.path.join(DATA_DIR, "backups")
 
-# JSON snapshots go here:
-BACKUP_DIR = os.path.join(BASE_DIR, "backups")
+DB_PATH = os.path.join(DATA_DIR, "proofs.db")
+LOG_CSV_PATH = os.path.join(DATA_DIR, "proofs_log.csv")
 
-# Slug -> design mapping file (optional):
 DESIGN_MAP_PATH = os.path.join(BASE_DIR, "design_map.json")
-
-DB_PATH = os.path.join(BASE_DIR, "proofs.db")
-LOG_CSV_PATH = os.path.join(BASE_DIR, "proofs_log.csv")
 
 # Set in Render Environment Variables:
 #   JNB_ADMIN_PASSWORD=your-strong-password
